@@ -7,6 +7,7 @@ import {
   NEON_FONTS_DATA,
   NEON_COLORS,
   BACKGROUNDS,
+  ACRYLIC_BASES,
   ASPECT_RATIOS,
   TEXT_ALIGNMENTS,
   TextIcon,
@@ -18,6 +19,7 @@ import {
 import type {
   NeonColor,
   Background,
+  AcrylicBase,
   AspectRatio,
   UploadedImage,
   TextAlign,
@@ -29,7 +31,7 @@ const App: React.FC = () => {
   const [generationType, setGenerationType] = useState<GenerationType>('text');
 
   // State for text generation
-  const [text, setText] = useState<string>('Neon\nVibes');
+  const [text, setText] = useState<string>('Neon Vibes');
   const [font, setFont] = useState<(typeof NEON_FONTS_DATA)[number]>(NEON_FONTS_DATA[0]);
   const [textAlign, setTextAlign] = useState<TextAlign>(TEXT_ALIGNMENTS[1]); // Default Center
 
@@ -42,6 +44,7 @@ const App: React.FC = () => {
   );
   const [color, setColor] = useState<NeonColor>(NEON_COLORS[0]);
   const [background, setBackground] = useState<Background>(BACKGROUNDS[0]);
+  const [acrylicBase, setAcrylicBase] = useState<AcrylicBase>(ACRYLIC_BASES[0]);
   const [isNeonOn, setIsNeonOn] = useState(true);
   
   // State for image generation
@@ -66,38 +69,43 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    if (generationType === 'image' && uploadedImage) {
-        const extract = async () => {
-            setIsExtractingColors(true);
-            setExtractedColors([]);
-            setSelectedColors([]);
-            setError(null);
-            try {
-                const colorsHex = await extractImageColors(uploadedImage);
-                if (colorsHex.length > 0) {
+    if (generationType === 'image') {
+        if (uploadedImage) {
+            const extract = async () => {
+                setIsExtractingColors(true);
+                setError(null);
+                try {
+                    const colorsHex = await extractImageColors(uploadedImage);
                     const neonColors = colorsHex.map(hexToNeonColor);
                     setExtractedColors(neonColors);
-                    setSelectedColors([neonColors[0]]); // Auto-select the first color
-                } else {
-                    // Fallback to default palette if no colors are extracted
-                    setExtractedColors(NEON_COLORS);
-                    setSelectedColors([NEON_COLORS[0]]);
+
+                    if (neonColors.length > 0) {
+                        setSelectedColors([neonColors[0]]); // Auto-select the first extracted color
+                    } else if (selectedColors.length === 0) {
+                        // If no colors extracted and nothing is selected, select first default
+                        setSelectedColors([NEON_COLORS[0]]);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    setError("Erro ao extrair cores. Usando paleta padrão.");
+                    setExtractedColors([]); // Clear extracted colors on error
+                } finally {
+                    setIsExtractingColors(false);
                 }
-            } catch (err) {
-                console.error(err);
-                setError("Erro ao extrair cores. Usando paleta padrão.");
-                setExtractedColors(NEON_COLORS); // Fallback to default
-                setSelectedColors([NEON_COLORS[0]]);
-            } finally {
-                setIsExtractingColors(false);
-            }
-        };
-        extract();
+            };
+            extract();
+        } else {
+            // Image type is selected, but no image uploaded yet
+            setExtractedColors([]);
+            setSelectedColors([NEON_COLORS[0]]); // Default to first color from standard palette
+        }
     } else {
+        // Not image generation type
         setExtractedColors([]);
         setSelectedColors([]);
     }
   }, [generationType, uploadedImage]);
+
 
   const handleColorToggle = (toggledColor: NeonColor) => {
     setSelectedColors(prev => {
@@ -134,6 +142,7 @@ const App: React.FC = () => {
           background,
           aspectRatio: aspectRatio.value,
           textAlign: textAlign.promptValue,
+          acrylicBase,
           isNeonOn,
         };
       } else if (generationType === 'image') {
@@ -153,6 +162,7 @@ const App: React.FC = () => {
           colors: selectedColors,
           background,
           aspectRatio: '1:1', 
+          acrylicBase,
           isNeonOn,
         };
       } else if (generationType === 'vectorize') {
@@ -181,16 +191,32 @@ const App: React.FC = () => {
           color,
           background,
           aspectRatio: aspectRatio.value,
+          acrylicBase,
           isNeonOn,
         };
       }
       const result = await generateNeonSign(options);
       setResultImage(`data:${result.mimeType};base64,${result.base64}`);
     } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.'
-      );
+      let displayError = 'Ocorreu um erro desconhecido ao gerar a imagem.';
+      if (err instanceof Error) {
+        const message = err.message || '';
+        if (message.includes('Responsible AI practices') || message.includes('SAFETY')) {
+            displayError = 'A geração da imagem foi bloqueada pela política de segurança. Tente ajustar o texto ou a descrição.';
+        } else {
+            try {
+                const match = message.match(/"message":\s*"(.*?)"/);
+                if (match && match[1]) {
+                    displayError = `Falha na geração: ${match[1]}`;
+                } else {
+                    displayError = `Falha na geração: ${message}`;
+                }
+            } catch (e) {
+                displayError = `Falha na geração: ${message}`;
+            }
+        }
+      }
+      setError(displayError);
     } finally {
       setLoading(false);
     }
@@ -430,7 +456,7 @@ const App: React.FC = () => {
                 {generationType !== 'vectorize' && (
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-300">
-                      {generationType === 'image' ? 'Cores da Imagem (selecione uma ou mais)' : 'Cor do Neon'}
+                      {generationType === 'image' ? 'Cores (selecione uma ou mais)' : 'Cor do Neon'}
                     </label>
 
                     {generationType === 'image' && isExtractingColors && (
@@ -440,27 +466,19 @@ const App: React.FC = () => {
                       </div>
                     )}
 
-                    {generationType === 'image' && !isExtractingColors && extractedColors.length === 0 && !uploadedImage && (
-                       <p className="text-center text-sm text-gray-400 py-2">Envie uma imagem para extrair suas cores.</p>
+                    {generationType === 'image' && !isExtractingColors && !uploadedImage && (
+                       <p className="text-center text-sm text-gray-400 py-2">Envie uma imagem para cores sugeridas, ou escolha da paleta abaixo.</p>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-                      {(generationType === 'image' ? extractedColors : NEON_COLORS).map((c) => {
-                          const isSelected = generationType === 'image'
-                            ? selectedColors.some(sc => sc.hex === c.hex)
-                            : color.hex === c.hex;
-                          
+                    {generationType !== 'image' && (
+                      <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+                        {NEON_COLORS.map((c) => {
+                          const isSelected = color.hex === c.hex;
                           return (
                             <button
                               key={c.name + c.hex}
                               type="button"
-                              onClick={() => {
-                                if (generationType === 'image') {
-                                  handleColorToggle(c);
-                                } else {
-                                  setColor(c);
-                                }
-                              }}
+                              onClick={() => setColor(c)}
                               title={c.name}
                               aria-label={`Selecionar cor ${c.name}`}
                               className={`w-10 h-10 rounded-full transition-all transform hover:scale-110 focus:outline-none ${c.tailwind} ${
@@ -472,7 +490,62 @@ const App: React.FC = () => {
                             />
                           );
                         })}
-                    </div>
+                      </div>
+                    )}
+                    
+                    {generationType === 'image' && (
+                      <div className='space-y-4'>
+                        {extractedColors.length > 0 && !isExtractingColors && (
+                            <div className="pt-2">
+                              <p className="text-center text-sm font-medium text-gray-400 mb-3">Cores da Imagem</p>
+                              <div className="flex flex-wrap items-center justify-center gap-4">
+                                {extractedColors.map((c) => {
+                                  const isSelected = selectedColors.some(sc => sc.hex === c.hex);
+                                  return (
+                                    <button
+                                      key={`extracted-${c.hex}`}
+                                      type="button"
+                                      onClick={() => handleColorToggle(c)}
+                                      title={c.name}
+                                      aria-label={`Selecionar cor ${c.name}`}
+                                      className={`w-10 h-10 rounded-full transition-all transform hover:scale-110 focus:outline-none ${
+                                        isSelected ? 'ring-2 ring-offset-2 ring-offset-gray-800 ring-white' : 'ring-1 ring-gray-600'
+                                      }`}
+                                      style={{
+                                        backgroundColor: c.hex,
+                                        boxShadow: isSelected ? `0 0 15px ${c.hex}` : 'none',
+                                      }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                        )}
+                        <div className={extractedColors.length > 0 ? "pt-4 border-t border-gray-700" : "pt-2"}>
+                            <p className="text-center text-sm font-medium text-gray-400 mb-3">Paleta Padrão</p>
+                            <div className="flex flex-wrap items-center justify-center gap-4">
+                            {NEON_COLORS.map((c) => {
+                              const isSelected = selectedColors.some(sc => sc.hex === c.hex);
+                              return (
+                                <button
+                                  key={`default-${c.hex}`}
+                                  type="button"
+                                  onClick={() => handleColorToggle(c)}
+                                  title={c.name}
+                                  aria-label={`Selecionar cor ${c.name}`}
+                                  className={`w-10 h-10 rounded-full transition-all transform hover:scale-110 focus:outline-none ${c.tailwind} ${
+                                    isSelected
+                                      ? `ring-2 ring-offset-2 ring-offset-gray-800 ring-white ${c.shadow}`
+                                      : 'ring-1 ring-gray-600'
+                                  }`}
+                                  style={!c.tailwind ? { backgroundColor: c.hex } : {}}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -503,6 +576,30 @@ const App: React.FC = () => {
                               {bg.name}
                             </span>
                           </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {generationType !== 'vectorize' && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Tipo de Fundo Acrílico
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ACRYLIC_BASES.map((base) => (
+                        <button
+                          key={base.name}
+                          type="button"
+                          onClick={() => setAcrylicBase(base)}
+                          className={`p-3 rounded-md border-2 transition-colors ${
+                            acrylicBase.name === base.name
+                              ? 'bg-gray-700 border-pink-500 text-white'
+                              : 'bg-gray-800 border-gray-600 hover:border-pink-500 text-gray-300'
+                          }`}
+                        >
+                          {base.name}
                         </button>
                       ))}
                     </div>

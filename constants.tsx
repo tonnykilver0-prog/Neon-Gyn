@@ -112,10 +112,16 @@ export const BACKGROUNDS = [
   { name: 'Cidade à Noite', url: 'https://picsum.photos/seed/nightcity/1024/768', description: 'uma rua noturna de cidade desfocada com luzes bokeh' },
   { name: 'Concreto Escuro', url: 'https://picsum.photos/seed/concrete/1024/768', description: 'uma parede de concreto escuro limpa com textura sutil' },
   { name: 'Fundo Minimalista', url: 'https://picsum.photos/seed/darkstudio/1024/768', description: 'um fundo de estúdio escuro e liso' },
-  { name: 'Plantas Exuberantes', url: 'https://picsum.photos/seed/plants/1024/768', description: 'uma parede coberta por plantas tropicais exuberantes e verde-escuras' },
+  { name: 'Plantas Exuberantes', url: 'https://picsum.photos/seed/plants/1024/768', description: 'um jardim vertical fotorrealista com uma densa mistura de plantas tropicais, como samambaias, monsteras e filodendros. A iluminação deve ser sutil, criando sombras profundas entre as folhas para dar uma sensação de profundidade e realismo. Algumas folhas podem ter um brilho úmido, como se tivessem sido borrifadas com água.' },
   { name: 'Vitrine de Loja', url: 'https://picsum.photos/seed/shopwindow/1024/768', description: 'o letreiro visto através de uma vitrine de loja à noite, com reflexos sutis da rua' },
 ] as const;
 export type Background = (typeof BACKGROUNDS)[number];
+
+export const ACRYLIC_BASES = [
+    { name: 'Transparente', description: 'uma base de acrílico perfeitamente transparente e cristalina, quase invisível' },
+    { name: 'Preta', description: 'uma base de acrílico preto sólido e brilhante, que cria um contraste forte com o neon' },
+] as const;
+export type AcrylicBase = (typeof ACRYLIC_BASES)[number];
 
 // Aspect Ratio Icons
 const LandscapeIcon: React.FC<{className?: string}> = ({className}) => (
